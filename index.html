@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="sr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GIS Projekat - Srbija</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        #forma-parametar {
+            background: #f4f6f8;
+            border-bottom: 1px solid #d0d7de;
+        }
+        .kontrole {
+            padding: 8px 14px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        #mapa { width: 100%; height: calc(100vh - 96px); }
+        input, button { padding: 6px 10px; font-size: 14px; }
+        button { cursor: pointer; }
+    </style>
+</head>
+<body>
+<form id="forma-parametar">
+    <div class="kontrole">
+        <label for="jaminpadavine"><strong>Minimalne padavine 15. januara:</strong></label>
+        <input type="number" id="jaminpadavine" name="jamin_padavine" step="0.1" placeholder="npr. 0" />
+        <button type="button" id="btn-januar">Primeni filter</button>
+    </div>
+</form>
+
+<div id="mapa"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    const geoserverWmsUrl = "http://localhost:8080/geoserver/gis_aplikacija/wms";
+
+    const mapa = L.map("mapa").setView([44.0165, 21.0059], 7);
+
+    // Bazna mapa
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap"
+    }).addTo(mapa);
+
+    // Rasterski sloj za januar
+    const rasterpadavinejanuar = L.tileLayer.wms(geoserverWmsUrl, {
+        layers: "gis_aplikacija:januar_srbija",
+        format: "image/png",
+        transparent: true
+    }).addTo(mapa);
+
+    // Vektorski sloj granice Srbije
+    const granicasrbije = L.tileLayer.wms(geoserverWmsUrl, {
+        layers: "gis_aplikacija:Srbija_granica",
+        format: "image/png",
+        transparent: true
+    }).addTo(mapa);
+
+    // Parametrizovani vektorski sloj stanica — 15. januar (15/01/2024)
+    const stanicejanuar = L.tileLayer.wms(geoserverWmsUrl, {
+        layers: "gis_aplikacija:stanice_po_padavinama",
+        format: "image/png",
+        transparent: true,
+        viewparams: "min_padavine:0;datum_filter:15/01/2024"
+    }).addTo(mapa);
+
+    // Kontrola slojeva
+    L.control.layers(null, {
+        "Prosečne padavine januar 1971-2000 (raster)": rasterpadavinejanuar,
+        "Granica Srbije (vektor)": granicasrbije,
+        "Stanice — 15. januar (15/01/2024)": stanicejanuar
+    }).addTo(mapa);
+
+    function primenijanuar() {
+        const janraw = document.getElementById("jaminpadavine").value.trim();
+        const janvrednost = janraw !== "" ? janraw : "0";
+        if (!mapa.hasLayer(stanicejanuar)) {
+            stanicejanuar.addTo(mapa);
+        }
+        stanicejanuar.setParams({
+            viewparams: "min_padavine:" + janvrednost + ";datum_filter:15/01/2024",
+            _t: Date.now()
+        });
+        stanicejanuar.redraw();
+    }
+
+    document.getElementById("btn-januar").addEventListener("click", primenijanuar);
+
+    document.getElementById("forma-parametar").addEventListener("submit", function (e) {
+        e.preventDefault();
+        primenijanuar();
+    });
+</script>
+</body>
+</html>
